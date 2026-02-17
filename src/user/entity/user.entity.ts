@@ -1,5 +1,5 @@
 import { Exclude } from 'class-transformer';
-import { BaseTable } from 'src/common/entities/base-table.entity';
+import { BaseTable } from 'src/common/entity/base-table.entity';
 import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
 
 export enum Role {

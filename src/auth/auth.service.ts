@@ -1,10 +1,11 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { User } from 'src/user/entities/user.entity';
+import { Role, User } from 'src/user/entity/user.entity';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
+import { envVariables } from 'src/common/constant/env.const';
 
 @Injectable()
 export class AuthService {
@@ -22,7 +23,11 @@ export class AuthService {
     if (basicSplit.length !== 2) {
       throw new BadRequestException('토큰 포맷이 잘못되었습니다!');
     }
-    const [, token] = basicSplit;
+    const [basic, token] = basicSplit;
+
+    if (basic.toLowerCase() !== 'basic') {
+      throw new BadRequestException('토큰 포맷이 잘못되었습니다!');
+    }
 
     /// 2. 추출한 토큰을 base64로 디코딩해서 이메일과 비밀번호로 나눈다.
     /// 'utf-8' << 우리 실제로 쓰는 문자
@@ -42,6 +47,40 @@ export class AuthService {
     };
   }
 
+  async parseBearerToken(rawToken: string, isRefreshToken: boolean) {
+    /// 1. rawToken을 ' ' 기준으로 split한 후 토큰 값만 추출
+    const bearerSplit = rawToken.split(' ');
+
+    if (bearerSplit.length !== 2) {
+      throw new BadRequestException('토큰 포맷이 잘못되었습니다!');
+    }
+    const [bearer, token] = bearerSplit;
+
+    if (bearer.toLowerCase() !== 'bearer') {
+      throw new BadRequestException('토큰 포맷이 잘못되었습니다!');
+    }
+
+    //jwtService.verifyAsync는 payload를 가져오는 동시에 검증까지 진행함
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    const payload = await this.jwtService.verifyAsync(token, {
+      secret: this.configService.get<string>(envVariables.refreshTTokenSecret),
+    });
+
+    if (isRefreshToken) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      if (payload.type !== 'refresh') {
+        throw new BadRequestException('Refresh 토큰을 입력해주세요.');
+      }
+    } else {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      if (payload.type !== 'access') {
+        throw new BadRequestException('Access 토큰을 입력해주세요.');
+      }
+    }
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return payload;
+  }
+
   /// rawToken -> "Basic $token" 형식이다
   async register(rawToken: string) {
     const { email, password } = this.parseBasicToken(rawToken);
@@ -59,7 +98,7 @@ export class AuthService {
 
     const hash = await bcrypt.hash(
       password,
-      this.configService.get<number>('HASH_ROUNDS')!,
+      this.configService.get<number>(envVariables.hashRounds)!,
     );
 
     await this.userRepository.save({
@@ -96,12 +135,12 @@ export class AuthService {
     return user;
   }
 
-  async issueToken(user: User, isRefreshToken: boolean) {
+  async issueToken(user: { id: number; role: Role }, isRefreshToken: boolean) {
     const refreshTokenSecret = this.configService.get<string>(
-      'REFRESH_TOKEN_SECRET',
+      envVariables.refreshTTokenSecret,
     );
     const accessTokenSecret = this.configService.get<string>(
-      'ACCESS_TOKEN_SECRET',
+      envVariables.accessTokenSecret,
     );
 
     return this.jwtService.signAsync(

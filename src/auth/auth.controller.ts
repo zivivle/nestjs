@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LocalAuthGuard } from './strategy/local.strategy';
-import { User } from 'src/user/entities/user.entity';
+import { User } from 'src/user/entity/user.entity';
 import { JwtAuthGuard } from './strategy/jwt.strategy';
 
 interface AuthenticatedRequest extends Request {
@@ -28,6 +28,16 @@ export class AuthController {
   // authorization: Basic $token
   loginUser(@Headers('authorization') token: string) {
     return this.authService.login(token);
+  }
+
+  @Post('token/access')
+  async refreshAccessToken(@Headers('authorization') token: string) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+    const payload = await this.authService.parseBearerToken(token, true);
+
+    return {
+      accessToken: await this.authService.issueToken(payload, false),
+    };
   }
 
   @UseGuards(LocalAuthGuard)
