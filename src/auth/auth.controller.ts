@@ -31,12 +31,9 @@ export class AuthController {
   }
 
   @Post('token/access')
-  async refreshAccessToken(@Headers('authorization') token: string) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const payload = await this.authService.parseBearerToken(token, true);
-
+  async refreshAccessToken(@Request() req: AuthenticatedRequest) {
     return {
-      accessToken: await this.authService.issueToken(payload, false),
+      accessToken: await this.authService.issueToken(req.user, false),
     };
   }
 

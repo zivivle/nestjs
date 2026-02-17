@@ -9,6 +9,7 @@ import {
   ParseIntPipe,
   UseInterceptors,
   ClassSerializerInterceptor,
+  Request,
 } from '@nestjs/common';
 import { UserService } from './user.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -25,7 +26,8 @@ export class UserController {
   }
 
   @Get()
-  findAll() {
+  findAll(@Request() req: any) {
+    console.log(req.user);
     return this.userService.findAll();
   }
 
