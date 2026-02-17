@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { Role, User } from 'src/user/entity/user.entity';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
@@ -61,24 +65,31 @@ export class AuthService {
     }
 
     //jwtService.verifyAsync는 payload를 가져오는 동시에 검증까지 진행함
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-    const payload = await this.jwtService.verifyAsync(token, {
-      secret: this.configService.get<string>(envVariables.refreshTTokenSecret),
-    });
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      const payload = await this.jwtService.verifyAsync(token, {
+        secret: this.configService.get<string>(
+          envVariables.refreshTTokenSecret,
+        ),
+      });
 
-    if (isRefreshToken) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      if (payload.type !== 'refresh') {
-        throw new BadRequestException('Refresh 토큰을 입력해주세요.');
+      if (isRefreshToken) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        if (payload.type !== 'refresh') {
+          throw new BadRequestException('Refresh 토큰을 입력해주세요.');
+        }
+      } else {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        if (payload.type !== 'access') {
+          throw new BadRequestException('Access 토큰을 입력해주세요.');
+        }
       }
-    } else {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      if (payload.type !== 'access') {
-        throw new BadRequestException('Access 토큰을 입력해주세요.');
-      }
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+      return payload;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    } catch (e) {
+      throw new UnauthorizedException('토큰이 만료되었습니다.');
     }
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return payload;
   }
 
   /// rawToken -> "Basic $token" 형식이다
